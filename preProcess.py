@@ -160,10 +160,10 @@ def readMD5Mat(dname, fname, num_images, image_sizeX, image_sizeY, channels):
     digitStruct = h5pyFile.get('digitStruct')
     bboxes = digitStruct['bbox']
     names = digitStruct['name']
-    dataset = np.ndarray(shape=(num_images, image_sizeX, image_sizeY, channels), dtype=np.uint8)
+    dataset = np.ndarray(shape=(num_images, image_sizeX, image_sizeY, channels), dtype=np.float32)
     labelset = np.ndarray(shape=(num_images, 6), dtype=np.uint8)
 
-    #for i in range(29929, 30000):
+    #for i in range(1, 2):
     for i in range(0, num_images):
         #print(i)
         imgNameArr = h5pyFile[names[i][0]]
@@ -205,7 +205,8 @@ def readMD5Mat(dname, fname, num_images, image_sizeX, image_sizeY, channels):
             print("  imgROI: {}".format(imgROI))
         croppedImg = cropImage(img, imgROI)
         resizedImg = resizeImage(croppedImg, image_sizeX, image_sizeY)
-        dataset[i] = resizedImg
+        # Normalize the dataset here also
+        dataset[i] = resizedImg / 256.0
         labelset[i] = ([num_labels] + labels)
     return dataset, labelset
 
@@ -268,4 +269,4 @@ maybe_pickle(pickleFilename,
             test_labels,
             force)
 
-print("Data Pre-processing Compelte!")
+print("Data Pre-processing Complete!")
