@@ -16,6 +16,7 @@ from scipy import ndimage
 import scipy.io as sio
 from six.moves.urllib.request import urlretrieve
 import h5py
+import time
 #from numpy.oldnumeric.compat import pickle_array
 
 def accuracy(predictions, labels):
@@ -104,7 +105,7 @@ patch_size = 5
 depth = 16
 num_hidden = 64
 
-# Single layer graph for simple testing
+# Single layer NN graph for simple testing
 if graph_type == 1:    
     #train_subset = 1000
     train_subset = len(train_dataset)
@@ -194,10 +195,17 @@ if graph_type == 1:
       
         num_steps = 1000
 
-        def accuracy(pnd, pd1, pd2, pd3, pd4, pd5, labels):
-            return (100.0 * np.sum(np.argmax(pnd, 1) == np.argmax(labels[:,0:5], 1))
-                    / pnd.shape[0])
-
+        def accuracy(predictions, labels):
+            ac_nd = 1.0 * np.sum(np.argmax(predictions[0], 1) == np.argmax(labels[:,0:5], 1)) / predictions[0].shape[0]
+            ac_d1 = 1.0 * np.sum(np.argmax(predictions[1], 1) == np.argmax(labels[:,5:15], 1)) / predictions[1].shape[0]
+            ac_d2 = 1.0 * np.sum(np.argmax(predictions[2], 1) == np.argmax(labels[:,15:25], 1)) / predictions[2].shape[0]
+            ac_d3 = 1.0 * np.sum(np.argmax(predictions[3], 1) == np.argmax(labels[:,25:35], 1)) / predictions[3].shape[0]
+            ac_d4 = 1.0 * np.sum(np.argmax(predictions[4], 1) == np.argmax(labels[:,35:45], 1)) / predictions[4].shape[0]
+            ac_d5 = 1.0 * np.sum(np.argmax(predictions[5], 1) == np.argmax(labels[:,45:55], 1)) / predictions[5].shape[0]
+            overall = ac_nd * ac_d1 * ac_d2 * ac_d3 * ac_d4 * ac_d5
+            return ac_nd, ac_d1, ac_d2, ac_d3, ac_d4, ac_d5, overall
+            
+        start = time.time()
         with tf.Session(graph=graph) as session:
             # This is a one-time operation which ensures the parameters get initialized as
             # we described in the graph: random weights for the matrix, zeros for the biases. 
@@ -211,20 +219,23 @@ if graph_type == 1:
                                                   train_prediction_digit1, train_prediction_digit2, 
                                                   train_prediction_digit3, train_prediction_digit4, train_prediction_digit5])
                  if (step % 100 == 0):
-                     print('Loss at step %d: %f' % (step, l))
-                     print('Training accuracy: %.1f%%' % accuracy(
-                            prediction_num_digits, prediction_digit1, prediction_digit2, 
-                            prediction_digit3, prediction_digit4, prediction_digit5, train_labels[:train_subset, :]))
+                     print("Loss at step {}: {}".format(step, l))
+                     print("Prediction num digits")
+                     print('Training accuracy: {}'.format(accuracy(
+                            (prediction_num_digits, prediction_digit1, prediction_digit2, 
+                            prediction_digit3, prediction_digit4, prediction_digit5), train_labels[:train_subset, :])))
                      # Calling .eval() on valid_prediction is basically like calling run(), but
                      # just to get that one numpy array. Note that it recomputes all its graph
                      # dependencies.
-                     print('Validation accuracy: %.1f%%' % accuracy(
-                            valid_prediction_num_digits.eval(),
+                     print('Validation accuracy: {}'.format(accuracy(
+                            (valid_prediction_num_digits.eval(),
                             valid_prediction_digit1.eval(), valid_prediction_digit2.eval(), valid_prediction_digit3.eval(),
-                            valid_prediction_digit4.eval(), valid_prediction_digit5.eval(), valid_labels))
-             print('Test accuracy: %.1f%%' % accuracy(test_prediction_num_digits.eval(), 
-                                                     test_prediction_digit1.eval(), test_prediction_digit2.eval(), test_prediction_digit3.eval(),
-                                                     test_prediction_digit4.eval(), test_prediction_digit5.eval(),test_labels))
+                            valid_prediction_digit4.eval(), valid_prediction_digit5.eval()), valid_labels)))
+             print('Test accuracy: {}'.format(accuracy((test_prediction_num_digits.eval(), 
+                    test_prediction_digit1.eval(), test_prediction_digit2.eval(), test_prediction_digit3.eval(),
+                    test_prediction_digit4.eval(), test_prediction_digit5.eval()),test_labels)))
+             end = time.time()
+             print("Time taken to train database : {} seconds".format(end - start))
 # 
 # Reformat to encode labels etc.
 # labels is not of the format (one_shot_enc_num_digits, one_shot_enc_digit1, ... , one_shot_enc_digit5)
