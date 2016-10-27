@@ -58,12 +58,12 @@ def reformat1(dataset, labels):
   digit2_encoded = (np.arange(num_labels) == digit2[:,None]).astype(np.float32)
   digit3 = labels[:,3]
   digit3_encoded = (np.arange(num_labels) == digit3[:,None]).astype(np.float32)
-  digit4 = labels[:,4]
-  digit4_encoded = (np.arange(num_labels) == digit4[:,None]).astype(np.float32)
-  digit5 = labels[:,5]
-  digit5_encoded = (np.arange(num_labels) == digit5[:,None]).astype(np.float32)
+  #digit4 = labels[:,4]
+  #digit4_encoded = (np.arange(num_labels) == digit4[:,None]).astype(np.float32)
+  #digit5 = labels[:,5]
+  #digit5_encoded = (np.arange(num_labels) == digit5[:,None]).astype(np.float32)
 
-  labels = np.hstack((num_digits_encoded, digit1_encoded, digit2_encoded, digit3_encoded, digit4_encoded, digit5_encoded))
+  labels = np.hstack((num_digits_encoded, digit1_encoded, digit2_encoded, digit3_encoded))
   return dataset, labels  
             
 # START OF MAIN PROGRAM
@@ -71,11 +71,11 @@ debug = 0
 graph_type = 1
 image_sizeX = 32
 image_sizeY = 32
-num_channels = 3 # rgb
-num_digits = 5
+num_channels = 1 # grayscale
+num_digits = 3
 num_labels = 10
 
-pickle_file = './svhn_5digits_rgb.pickle'
+pickle_file = './svhn_3digits_gray.pickle'
 
 # Start by reading in the pickle datasets
 print("Reading pickle file {}".format(pickle_file))
@@ -140,14 +140,14 @@ if graph_type == 1:
         weights_digit1 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
         weights_digit2 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
         weights_digit3 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
-        weights_digit4 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
-        weights_digit5 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
+        #weights_digit4 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
+        #weights_digit5 = tf.Variable(tf.truncated_normal([image_sizeX * image_sizeY * num_channels, num_labels]))
         biases_num_digits = tf.Variable(tf.zeros([num_digits]))
         biases_digit1 = tf.Variable(tf.zeros([num_labels]))
         biases_digit2 = tf.Variable(tf.zeros([num_labels]))
         biases_digit3 = tf.Variable(tf.zeros([num_labels]))
-        biases_digit4 = tf.Variable(tf.zeros([num_labels]))
-        biases_digit5 = tf.Variable(tf.zeros([num_labels]))
+        #biases_digit4 = tf.Variable(tf.zeros([num_labels]))
+        #biases_digit5 = tf.Variable(tf.zeros([num_labels]))
       
         # Training computation.
         # We multiply the inputs with the weight matrix, and add biases. We compute
@@ -158,14 +158,14 @@ if graph_type == 1:
         logits_digit1 = tf.matmul(tf_train_dataset, weights_digit1) + biases_digit1
         logits_digit2 = tf.matmul(tf_train_dataset, weights_digit2) + biases_digit2
         logits_digit3 = tf.matmul(tf_train_dataset, weights_digit3) + biases_digit3
-        logits_digit4 = tf.matmul(tf_train_dataset, weights_digit4) + biases_digit4
-        logits_digit5 = tf.matmul(tf_train_dataset, weights_digit5) + biases_digit5
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits_num_digits, tf_train_labels[:,0:5]) +
-                              tf.nn.softmax_cross_entropy_with_logits(logits_digit1, tf_train_labels[:,5:15]) +
-                              tf.nn.softmax_cross_entropy_with_logits(logits_digit2, tf_train_labels[:,15:25]) +
-                              tf.nn.softmax_cross_entropy_with_logits(logits_digit3, tf_train_labels[:,25:35]) +
-                              tf.nn.softmax_cross_entropy_with_logits(logits_digit4, tf_train_labels[:,35:45]) +
-                              tf.nn.softmax_cross_entropy_with_logits(logits_digit5, tf_train_labels[:,45:55]))
+        #logits_digit4 = tf.matmul(tf_train_dataset, weights_digit4) + biases_digit4
+        #logits_digit5 = tf.matmul(tf_train_dataset, weights_digit5) + biases_digit5
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits_num_digits, tf_train_labels[:,0:3]) +
+                              tf.nn.softmax_cross_entropy_with_logits(logits_digit1, tf_train_labels[:,3:13]) +
+                              tf.nn.softmax_cross_entropy_with_logits(logits_digit2, tf_train_labels[:,13:23]) +
+                              tf.nn.softmax_cross_entropy_with_logits(logits_digit3, tf_train_labels[:,23:33]))
+                              #tf.nn.softmax_cross_entropy_with_logits(logits_digit4, tf_train_labels[:,35:45]) +
+                              #tf.nn.softmax_cross_entropy_with_logits(logits_digit5, tf_train_labels[:,45:55]))
       
         # Optimizer.
         # We are going to find the minimum of this loss using gradient descent.
@@ -178,32 +178,32 @@ if graph_type == 1:
         train_prediction_digit1 = tf.nn.softmax(logits_digit1)
         train_prediction_digit2 = tf.nn.softmax(logits_digit2)
         train_prediction_digit3 = tf.nn.softmax(logits_digit3)
-        train_prediction_digit4 = tf.nn.softmax(logits_digit4)
-        train_prediction_digit5 = tf.nn.softmax(logits_digit5)
+        #train_prediction_digit4 = tf.nn.softmax(logits_digit4)
+        #train_prediction_digit5 = tf.nn.softmax(logits_digit5)
         valid_prediction_num_digits = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_num_digits) + biases_num_digits)
         valid_prediction_digit1 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit1) + biases_digit1)
         valid_prediction_digit2 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit2) + biases_digit2)
         valid_prediction_digit3 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit3) + biases_digit3)
-        valid_prediction_digit4 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit4) + biases_digit4)
-        valid_prediction_digit5 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit5) + biases_digit5)
+        #valid_prediction_digit4 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit4) + biases_digit4)
+        #valid_prediction_digit5 = tf.nn.softmax(tf.matmul(tf_valid_dataset, weights_digit5) + biases_digit5)
         test_prediction_num_digits = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_num_digits) + biases_num_digits)
         test_prediction_digit1 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit1) + biases_digit1)
         test_prediction_digit2 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit2) + biases_digit2)
         test_prediction_digit3 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit3) + biases_digit3)
-        test_prediction_digit4 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit4) + biases_digit1)
-        test_prediction_digit5 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit5) + biases_digit5)
+        #test_prediction_digit4 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit4) + biases_digit1)
+        #test_prediction_digit5 = tf.nn.softmax(tf.matmul(tf_test_dataset, weights_digit5) + biases_digit5)
       
         num_steps = 1000
 
         def accuracy(predictions, labels):
-            ac_nd = 1.0 * np.sum(np.argmax(predictions[0], 1) == np.argmax(labels[:,0:5], 1)) / predictions[0].shape[0]
-            ac_d1 = 1.0 * np.sum(np.argmax(predictions[1], 1) == np.argmax(labels[:,5:15], 1)) / predictions[1].shape[0]
-            ac_d2 = 1.0 * np.sum(np.argmax(predictions[2], 1) == np.argmax(labels[:,15:25], 1)) / predictions[2].shape[0]
-            ac_d3 = 1.0 * np.sum(np.argmax(predictions[3], 1) == np.argmax(labels[:,25:35], 1)) / predictions[3].shape[0]
-            ac_d4 = 1.0 * np.sum(np.argmax(predictions[4], 1) == np.argmax(labels[:,35:45], 1)) / predictions[4].shape[0]
-            ac_d5 = 1.0 * np.sum(np.argmax(predictions[5], 1) == np.argmax(labels[:,45:55], 1)) / predictions[5].shape[0]
-            overall = ac_nd * ac_d1 * ac_d2 * ac_d3 * ac_d4 * ac_d5
-            return ac_nd, ac_d1, ac_d2, ac_d3, ac_d4, ac_d5, overall
+            ac_nd = 1.0 * np.sum(np.argmax(predictions[0], 1) == np.argmax(labels[:,0:3], 1)) / predictions[0].shape[0]
+            ac_d1 = 1.0 * np.sum(np.argmax(predictions[1], 1) == np.argmax(labels[:,3:13], 1)) / predictions[1].shape[0]
+            ac_d2 = 1.0 * np.sum(np.argmax(predictions[2], 1) == np.argmax(labels[:,13:23], 1)) / predictions[2].shape[0]
+            ac_d3 = 1.0 * np.sum(np.argmax(predictions[3], 1) == np.argmax(labels[:,23:33], 1)) / predictions[3].shape[0]
+            #ac_d4 = 1.0 * np.sum(np.argmax(predictions[4], 1) == np.argmax(labels[:,35:45], 1)) / predictions[4].shape[0]
+            #ac_d5 = 1.0 * np.sum(np.argmax(predictions[5], 1) == np.argmax(labels[:,45:55], 1)) / predictions[5].shape[0]
+            overall = ac_nd * ac_d1 * ac_d2 * ac_d3 
+            return ac_nd, ac_d1, ac_d2, ac_d3, overall
             
         start = time.time()
         with tf.Session(graph=graph) as session:
@@ -215,24 +215,22 @@ if graph_type == 1:
                  # Run the computations. We tell .run() that we want to run the optimizer,
                  # and get the loss value and the training predictions returned as numpy
                  # arrays.
-                 _, l, prediction_num_digits, prediction_digit1, prediction_digit2, prediction_digit3, prediction_digit4, prediction_digit5 = session.run([optimizer, loss, train_prediction_num_digits, 
+                 _, l, prediction_num_digits, prediction_digit1, prediction_digit2, prediction_digit3 = session.run([optimizer, loss, train_prediction_num_digits, 
                                                   train_prediction_digit1, train_prediction_digit2, 
-                                                  train_prediction_digit3, train_prediction_digit4, train_prediction_digit5])
+                                                  train_prediction_digit3])
                  if (step % 100 == 0):
                      print("Loss at step {}: {}".format(step, l))
                      print('Training accuracy: {}'.format(accuracy(
                             (prediction_num_digits, prediction_digit1, prediction_digit2, 
-                            prediction_digit3, prediction_digit4, prediction_digit5), train_labels[:train_subset, :])))
+                            prediction_digit3), train_labels[:train_subset, :])))
                      # Calling .eval() on valid_prediction is basically like calling run(), but
                      # just to get that one numpy array. Note that it recomputes all its graph
                      # dependencies.
                      print('Validation accuracy: {}'.format(accuracy(
                             (valid_prediction_num_digits.eval(),
-                            valid_prediction_digit1.eval(), valid_prediction_digit2.eval(), valid_prediction_digit3.eval(),
-                            valid_prediction_digit4.eval(), valid_prediction_digit5.eval()), valid_labels)))
+                            valid_prediction_digit1.eval(), valid_prediction_digit2.eval(), valid_prediction_digit3.eval()), valid_labels)))
              print('Test accuracy: {}'.format(accuracy((test_prediction_num_digits.eval(), 
-                    test_prediction_digit1.eval(), test_prediction_digit2.eval(), test_prediction_digit3.eval(),
-                    test_prediction_digit4.eval(), test_prediction_digit5.eval()),test_labels)))
+                    test_prediction_digit1.eval(), test_prediction_digit2.eval(), test_prediction_digit3.eval()),test_labels)))
              end = time.time()
              print("Time taken to train database : {} seconds".format(end - start))
 # 

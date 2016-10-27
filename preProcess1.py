@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# This program will generate a pickle file for all images that have up to 4 digits
+# It will also generate grayscale images
+
 # These are all the modules we'll be using later. Make sure you can import them
 # before proceeding further.
 from __future__ import print_function
@@ -115,10 +118,12 @@ def getH5LabelValues(h5File, h5array):
     return num_digits, digArr
 
 def getShrinkWrap(name, leftArr, topArr, widthArr, heightArr):
-    img = cv2.imread(name)
-    imgH, imgW, channels = img.shape
+    orig_img = cv2.imread(name)
+    # Convert to grayscale
+    img = cv2.cvtColor(orig_img, cv2.COLOR_RGB2GRAY)
+    imgH, imgW = img.shape
     if debug:
-        print("  Image size: {} x {}, {} channels".format(imgH, imgW, channels))
+        print("  Image size: {} x {}".format(imgH, imgW))
     left = min(leftArr)
     top = min(topArr)
     right = max(map(add, leftArr, widthArr))
@@ -160,10 +165,12 @@ def readMD5Mat(dname, fname, num_images, image_sizeX, image_sizeY, channels):
     digitStruct = h5pyFile.get('digitStruct')
     bboxes = digitStruct['bbox']
     names = digitStruct['name']
-    dataset = np.ndarray(shape=(num_images, image_sizeX, image_sizeY, channels), dtype=np.float32)
-    labelset = np.ndarray(shape=(num_images, 6), dtype=np.uint8)
+    #dataset = np.ndarray(shape=(num_images, image_sizeX, image_sizeY), dtype=np.float32)
+    #labelset = np.ndarray(shape=(num_images, 6), dtype=np.uint8)
+    datasetList = []
+    labelsetList = []
 
-    #for i in range(1, 2):
+    #for i in range(0, 2):
     for i in range(0, num_images):
         #print(i)
         imgNameArr = h5pyFile[names[i][0]]
@@ -181,6 +188,9 @@ def readMD5Mat(dname, fname, num_images, image_sizeX, image_sizeY, channels):
         widthArr = bBoxArr['width']
         labelArr = bBoxArr['label']
         num_labels, labels = getH5LabelValues(h5pyFile, labelArr)
+        # Ignore images that have more than 3 digits
+        if num_labels > 3:
+            continue;
         if num_labels > 5:
             print("** Image {} has more than 5 digits! Found {}".format(imgName, num_labels))
         if num_labels <= 0:
@@ -206,12 +216,16 @@ def readMD5Mat(dname, fname, num_images, image_sizeX, image_sizeY, channels):
         croppedImg = cropImage(img, imgROI)
         resizedImg = resizeImage(croppedImg, image_sizeX, image_sizeY)
         # Normalize the dataset here also
-        dataset[i] = resizedImg / 256.0
-        labelset[i] = ([num_labels] + labels)
+        #dataset[i] = resizedImg / 256.0
+        datasetList.append(resizedImg / 256.0)
+        #labelset[i] = ([num_labels] + labels)
+        labelsetList.append(([num_labels] + labels))
+    dataset = np.array(datasetList)
+    labelset = np.array(labelsetList)
     return dataset, labelset
 
 # START OF MAIN PROGRAM
-debug = 0
+debug = 1
 num_classes = 10
 np.random.seed(133)
 image_sizeX = 32  # Pixel width
@@ -221,7 +235,7 @@ num_test_images = 13068
 num_train_items = 23402
 channels = 3
 pixel_depth = 255.0  # Number of levels per pixel.
-pickleFilename = "./svhn_5digits_rgb.pickle"
+pickleFilename = "./svhn_3digits_gray.pickle"
 force = 0
 
 url = 'http://ufldl.stanford.edu/housenumbers/'
@@ -242,10 +256,13 @@ test_dataset, test_labels = readMD5Mat('test', 'digitStruct.mat', num_test_image
 # Data is already randomized, so no need for further randomization
 
 # Split train_dataset and labels into a training set and a CV set
-train_dataset = train_all_dataset[:num_train_items]
-train_labels = train_all_labels[:num_train_items]
-valid_dataset = train_all_dataset[num_train_items:]
-valid_labels = train_all_labels[num_train_items:]
+train_set_size = len(train_all_labels) * 3 / 4
+print("Training size : {}".format(train_set_size))
+print("Validation size : {}".format(len(train_all_labels) - train_set_size))
+train_dataset = train_all_dataset[:train_set_size]
+train_labels = train_all_labels[:train_set_size]
+valid_dataset = train_all_dataset[train_set_size:]
+valid_labels = train_all_labels[train_set_size:]
 
 # Lets see how many of each sequence of digits there are
 numNums = [item[0] for item in train_labels]
