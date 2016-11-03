@@ -36,37 +36,29 @@ def reformat(dataset, labels):
   labels = np.hstack((num_digits_encoded, digit1_encoded, digit2_encoded, digit3_encoded))
   return dataset, labels
 
-def log_file_name():
-  log_name = "./logs/svhm_" 
+def model_name():
+  model_name = "svhm_" 
   if use_cnn:
-    log_name += "cnn_"
-    log_name += "dep_" + str(depth) + "_"
-    log_name += "ps_" + str(patch_size) + "_"
+    model_name += "cnn_"
+    model_name += "dep_" + str(depth) + "_"
+    model_name += "ps_" + str(patch_size) + "_"
   if use_regularization:
-    log_name += "reg_" + str(reg_beta) + "_"
+    model_name += "reg_" + str(reg_beta) + "_"
   if use_learning_rate_decay:
-    log_name += "lrd_"
-  log_name += "lr_" + str(initial_learning_rate) + "_"
+    model_name += "lrd_"
+  model_name += "lr_" + str(initial_learning_rate) + "_"
   if use_dropout:
-    log_name += "do_" + "kp_" + str(dropout_keep_prob) + "_"
-  log_name += "nnl1_" + str(hidden_layer1_size) + "_" 
-  log_name += "nnl2_" + str(hidden_layer2_size) + "_" 
-  log_name += "bs_" + str(batch_size) +"_"
-  log_name += "ts_"
+    model_name += "do_" + "kp_" + str(dropout_keep_prob) + "_"
+  model_name += "nnl1_" + str(hidden_layer1_size) + "_" 
+  model_name += "nnl2_" + str(hidden_layer2_size) + "_" 
+  model_name += "bs_" + str(batch_size) +"_"
+  model_name += "ts_"
   if train_subset == -1:
-    log_name += "full_"
+    model_name += "full_"
   else:
-    log_name += str(train_subset) + "_"
-  log_name += datetime.datetime.now().strftime("%I.%M%p_%B_%d_%Y_")
-  log_name += ".log"
-
-  # Create log directory if needed
-  dir = "./logs"
-  try:
-    os.start(dir)
-  except:
-    os.mkdir(dir) 
-  return log_name
+    model_name += str(train_subset) + "_"
+  model_name += datetime.datetime.now().strftime("%I.%M%p_%B_%d_%Y_")
+  return model_name
             
 # START OF MAIN PROGRAM
 debug = 0
@@ -75,6 +67,7 @@ image_sizeY = 32
 num_channels = 1 # grayscale
 num_digits = 3
 num_labels = 11  #  0 = 'no digit'. 1..10 = digits 1 to 10(0)
+epochs = 3500
 digit1_index = num_digits
 digit2_index = num_digits + num_labels
 digit3_index = num_digits + (num_labels * 2)
@@ -86,18 +79,32 @@ hidden_layer1_size =  1024
 hidden_layer2_size =  512
 dropout_keep_prob = 0.5
 use_cnn = True
-use_regularization = False
+use_regularization = True
 reg_beta = 0.01
 use_learning_rate_decay = False
 use_dropout = False
-initial_learning_rate = 0.005
+initial_learning_rate = 0.002
 #train_subset = 130 # Use -1 for full dataset
 train_subset = -1 # Use -1 for full dataset
 compute_validation = False
 compute_test = True
 compute_single_inference=True
 
-log_file_name = log_file_name()
+# Create log directory if needed
+dir = "./logs"
+try:
+  os.stat(dir)
+except:
+  os.mkdir(dir) 
+# Create models directory if needed
+dir = "./models"
+try:
+  os.stat(dir)
+except:
+  os.mkdir(dir) 
+
+model_file_name = "./models/" + model_name()
+log_file_name = "./logs/" + model_name() + ".log"
 print("Writing to log file {}".format(log_file_name))
 log_file = open(log_file_name, 'w')
 
@@ -367,8 +374,6 @@ with graph.as_default():
     valid_prediction_num_digits, valid_prediction_digit1, valid_prediction_digit2, valid_prediction_digit3 = full_model(tf_valid_dataset)       
     test_prediction_num_digits, test_prediction_digit1, test_prediction_digit2, test_prediction_digit3 = full_model(tf_test_dataset)
               
-    num_steps = 1500
-
     def accuracy(predictions, labels):
         ac_nd = 1.0 * np.sum(np.argmax(predictions[0], 1) == np.argmax(labels[:,0:num_digits], 1)) / predictions[0].shape[0]
         ac_d1 = 1.0 * np.sum(np.argmax(predictions[1], 1) == np.argmax(labels[:,digit1_index:digit2_index], 1)) / predictions[1].shape[0]
@@ -378,10 +383,14 @@ with graph.as_default():
         overall = (ac_nd + ac_d1 + ac_d2 + ac_d3) / 4.0
         return ac_nd, ac_d1, ac_d2, ac_d3, overall
         
+    # Add variables for viewing in Tensorboard
     for value in [loss]:
         tf.scalar_summary(value.op.name, value)           
     summaries = tf.merge_all_summaries()
-          
+
+    # Get ready to save the model          
+    saver = tf.train.Saver()
+
     # Train the model        
     start = time.time()
     with tf.Session(graph=graph) as session:
@@ -390,7 +399,7 @@ with graph.as_default():
         # we described in the graph: random weights for the matrix, zeros for the biases. 
         tf.initialize_all_variables().run()
         print('Initialized', file=log_file)
-        for step in range(num_steps):
+        for step in range(epochs):
             # Pick an offset within the training data, which has been randomized.
             # Note: we could use better randomization across epochs.
             offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
@@ -408,9 +417,9 @@ with graph.as_default():
                                             train_prediction_digit1, train_prediction_digit2, 
                                             train_prediction_digit3], feed_dict=feed_dict)
             summary_writer.add_summary(summary_str, step)
-            if (step % 100 == 0):
-                print("Minibatch Loss at step {} of {}: {}".format(step, num_steps, l), file=log_file)
-                print("Minibatch Loss at step {} of {}: {}".format(step, num_steps, l))
+            if (step % 100 == 0 or step == epochs-1):
+                print("Minibatch Loss at step {} of {}: {}".format(step, epochs, l), file=log_file)
+                print("Minibatch Loss at step {} of {}: {}".format(step, epochs, l))
                 print('Minibatch Training accuracy: {}'.format(accuracy(
                     (prediction_num_digits, prediction_digit1, prediction_digit2, 
                     prediction_digit3), batch_labels)), file=log_file)
@@ -438,6 +447,10 @@ with graph.as_default():
         print("Time taken to train database : {} seconds".format(end - start), file=log_file)
         print("Time taken to train database : {} seconds".format(end - start))
 	log_file.close()
+
+        # Save the model
+        print("Saving model to {}".format(model_file_name))
+        save_path = saver.save(session, model_file_name)
              
         # let's see what get predicted for a single image
 	if compute_single_inference:
