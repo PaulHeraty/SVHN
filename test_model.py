@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import __future__ import print_function
+from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 from six.moves import cPickle as pickle
@@ -24,9 +24,15 @@ def reformat(dataset, labels):
 
 
 pickle_file = './svhn_3digits_gray.pickle'
+use_cnn = True
+image_sizeX =32
+image_sizeY = 32
+num_channels = 1
+num_digits = 3
+num_labels = 11
 
 # Start by reading in the pickle datasets
-print("Reading pickle file {}".format(pickle_file), file=log_file)
+print("Reading pickle file {}".format(pickle_file))
 with open(pickle_file, 'rb') as f:
   save = pickle.load(f)
   train_dataset = save['train_dataset']
@@ -40,13 +46,22 @@ with open(pickle_file, 'rb') as f:
 train_dataset, train_labels = reformat(train_dataset, train_labels)
 valid_dataset, valid_labels = reformat(valid_dataset, valid_labels)
 test_dataset, test_labels = reformat(test_dataset, test_labels)
-print('Training set', train_dataset.shape, train_labels.shape, file=log_file)
-print('Validation set', valid_dataset.shape, valid_labels.shape, file=log_file)
-print('Test set', test_dataset.shape, test_labels.shape, file=log_file)
+print('Training set', train_dataset.shape, train_labels.shape)
+print('Validation set', valid_dataset.shape, valid_labels.shape)
+print('Test set', test_dataset.shape, test_labels.shape)
+
+graph = tf.Graph()
+
+tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizeX, image_sizeY, num_channels))
+tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_digits + num_digits * num_labels))
+tf_valid_dataset = tf.constant(valid_dataset)
+tf_test_dataset = tf.constant(test_dataset)
+
 
 
 with tf.Session(graph=graph) as session:
-  saver.restore(session, "./logs/model_test.ckpt")
+  saver = tf.train.Saver()
+  saver.restore(session, "./logs/svhm_cnn_dep_16_ps_5_reg_0.01_lr_0.002_nnl1_1024_nnl2_512_bs_128_ts_full_06.01PM_November_03_2016_")
 
   start = time.time()
   input_image = test_dataset[0]

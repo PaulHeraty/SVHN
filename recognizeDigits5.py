@@ -18,6 +18,7 @@ from six.moves.urllib.request import urlretrieve
 import h5py
 import time
 import datetime
+import math
 
 def reformat(dataset, labels):
   if use_cnn:
@@ -399,6 +400,9 @@ with graph.as_default():
         # we described in the graph: random weights for the matrix, zeros for the biases. 
         tf.initialize_all_variables().run()
         print('Initialized', file=log_file)
+	batch_count = int(math.ceil(len(train_dataset)/batch_size))
+
+        
         for step in range(epochs):
             # Pick an offset within the training data, which has been randomized.
             # Note: we could use better randomization across epochs.
@@ -429,18 +433,14 @@ with graph.as_default():
 		log_file.flush()
                 if compute_validation:
                     print('Validation accuracy: {}'.format(accuracy(
-                        (valid_prediction_num_digits.eval(feed_dict={tf_train_dataset : batch_data, tf_train_labels : batch_labels, keep_prob:1.0}),
-                        valid_prediction_digit1.eval(feed_dict={tf_train_dataset : batch_data, tf_train_labels : batch_labels, keep_prob:1.0}), 
-                        valid_prediction_digit2.eval(feed_dict={tf_train_dataset : batch_data, tf_train_labels : batch_labels, keep_prob:1.0}), 
-                        valid_prediction_digit3.eval(feed_dict={tf_train_dataset : batch_data, tf_train_labels : batch_labels, keep_prob:1.0})), 
-                        valid_labels)), file=log_file)
+			session.run([valid_prediction_num_digits, valid_prediction_digit1,
+			    valid_prediction_digit2, valid_prediction_digit3], 
+			    feed_dict={keep_prob:1.0}), valid_labels)), file=log_file)
         if compute_test:
-	    test_acc = accuracy((
-                test_prediction_num_digits.eval(feed_dict={keep_prob:1.0}), 
-                test_prediction_digit1.eval(feed_dict={keep_prob:1.0}), 
-                test_prediction_digit2.eval(feed_dict={keep_prob:1.0}), 
-                test_prediction_digit3.eval(feed_dict={keep_prob:1.0})),
-                test_labels)
+	    test_acc = accuracy(
+		session.run([test_prediction_num_digits, test_prediction_digit1,
+		    test_prediction_digit2, test_prediction_digit3], feed_dict={keep_prob:1.0}), 
+		    test_labels)
             print('Test accuracy: {}'.format(test_acc), file=log_file)
             print('Test accuracy: {}'.format(test_acc))
         end = time.time()
