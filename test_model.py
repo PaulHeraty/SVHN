@@ -4,6 +4,7 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 from six.moves import cPickle as pickle
+from tensorflow.python.platform import gfile
 
 def reformat(dataset, labels):
   if use_cnn:
@@ -57,9 +58,17 @@ tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_digits + num
 tf_valid_dataset = tf.constant(valid_dataset)
 tf_test_dataset = tf.constant(test_dataset)
 
+model_name = "./logs/svhm_cnn_dep_16_ps_5_reg_0.01_lr_0.002_nnl1_1024_nnl2_512_bs_128_ts_full_06.01PM_November_03_2016_"
 
 
 with tf.Session(graph=graph) as session:
+  print("Load graph...")
+  with gfile.FastGFile(model_name + ".proto", 'rb') as f:
+    graph_def = tf.GraphDef()
+    graph_def.ParseFromString(f.read())
+    persisted_sess.graph.as_default()
+    tf.import_graph_def(graph_def, name='')
+  print("Map variables...")
   saver = tf.train.Saver()
   saver.restore(session, "./logs/svhm_cnn_dep_16_ps_5_reg_0.01_lr_0.002_nnl1_1024_nnl2_512_bs_128_ts_full_06.01PM_November_03_2016_")
 
