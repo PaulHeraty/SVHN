@@ -20,6 +20,9 @@ import time
 import datetime
 import math
 from tqdm import tqdm
+from sklearn.metrics import precision_recall_fscore_support as score
+from sklearn.metrics import classification_report
+import pandas as pd
 
 def reformat(dataset, labels):
   if use_cnn:
@@ -161,10 +164,13 @@ with graph.as_default():
     
     # Input data.
     if use_cnn:
-        tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizeX, image_sizeY, num_channels))
+        #tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizeX, image_sizeY, num_channels))
+        tf_train_dataset = tf.placeholder(tf.float32, shape=[None, image_sizeX, image_sizeY, num_channels])
     else:
-        tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizeX * image_sizeY * num_channels))
-    tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_digits + num_digits * num_labels))
+        #tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, image_sizeX * image_sizeY * num_channels))
+        tf_train_dataset = tf.placeholder(tf.float32, shape=[None, image_sizeX * image_sizeY * num_channels])
+    #tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_digits + num_digits * num_labels))
+    tf_train_labels = tf.placeholder(tf.float32, shape=[None, num_digits + num_digits * num_labels])
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
       
@@ -178,10 +184,10 @@ with graph.as_default():
         cnn_layer1a_weights = tf.get_variable("cnn_layer1a_weights", 
                                             shape = [patch_size, patch_size, depth, depth],
                                             initializer=tf.contrib.layers.xavier_initializer())
-        cnn_layer1b_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, depth, depth]))
-        cnn_layer1b_weights = tf.get_variable("cnn_layer1b_weights", 
-                                            shape = [patch_size, patch_size, depth, depth],
-                                            initializer=tf.contrib.layers.xavier_initializer())
+        #cnn_layer1b_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, depth, depth]))
+        #cnn_layer1b_weights = tf.get_variable("cnn_layer1b_weights", 
+        #                                    shape = [patch_size, patch_size, depth, depth],
+        #                                    initializer=tf.contrib.layers.xavier_initializer())
         cnn_layer2_weights = tf.Variable(tf.truncated_normal([patch_size, patch_size, depth, depth]))
         cnn_layer2_weights = tf.get_variable("cnn_layer2_weights", 
                                         shape = [patch_size, patch_size, depth, depth],
@@ -242,7 +248,7 @@ with graph.as_default():
     if use_cnn:
         cnn_layer1_biases = tf.Variable(tf.zeros([depth]))
         cnn_layer1a_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
-        cnn_layer1b_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
+        #cnn_layer1b_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
         cnn_layer2_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
         #cnn_layer2a_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
     biases_num_digits_h1 = tf.Variable(tf.constant(1.0, shape=[hidden_layer1_size]))
@@ -267,16 +273,18 @@ with graph.as_default():
             hidden1 = tf.nn.relu(conv1 + cnn_layer1_biases)
             conv1a = tf.nn.conv2d(hidden1, cnn_layer1a_weights, [1, 1, 1, 1], padding='SAME')
             hidden1a = tf.nn.relu(conv1a + cnn_layer1a_biases)
-            conv1b = tf.nn.conv2d(hidden1a, cnn_layer1b_weights, [1, 1, 1, 1], padding='SAME')
-            hidden1b = tf.nn.relu(conv1b + cnn_layer1b_biases)
-            pooling1 = tf.nn.max_pool(hidden1b, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+            #conv1b = tf.nn.conv2d(hidden1a, cnn_layer1b_weights, [1, 1, 1, 1], padding='SAME')
+            #hidden1b = tf.nn.relu(conv1b + cnn_layer1b_biases)
+            pooling1 = tf.nn.max_pool(hidden1a, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
             conv2 = tf.nn.conv2d(pooling1, cnn_layer2_weights, [1, 1, 1, 1], padding='SAME')
             hidden2 = tf.nn.relu(conv2 + cnn_layer2_biases)
             #conv2a = tf.nn.conv2d(hidden2, cnn_layer2a_weights, [1, 1, 1, 1], padding='SAME')
             #hidden2a = tf.nn.relu(conv2a + cnn_layer2a_biases)
             pooling2 = tf.nn.max_pool(hidden2, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
             shape = pooling2.get_shape().as_list()
-            return tf.reshape(pooling2, [shape[0], shape[1] * shape[2] * shape[3]])
+            #return tf.reshape(pooling2, [shape[0], shape[1] * shape[2] * shape[3]])
+	    dim = np.prod(shape[1:])
+            return tf.reshape(pooling2, [-1, dim])
             
     def model_num_digits(data):
         hidden1_num_digits = tf.nn.relu(tf.matmul(data, weights_num_digits_h1) + biases_num_digits_h1)
@@ -351,8 +359,8 @@ with graph.as_default():
     if use_cnn and use_regularization:
         loss += reg_beta*tf.nn.l2_loss(cnn_layer1_weights) + \
 		reg_beta*tf.nn.l2_loss(cnn_layer1a_weights) + \
-		reg_beta*tf.nn.l2_loss(cnn_layer1b_weights) + \
                 reg_beta*tf.nn.l2_loss(cnn_layer2_weights)
+		#reg_beta*tf.nn.l2_loss(cnn_layer1b_weights) + 
     if use_regularization:
         loss += reg_beta*tf.nn.l2_loss(weights_num_digits_h1) + \
                 reg_beta*tf.nn.l2_loss(weights_num_digits_h2) + \
@@ -457,13 +465,44 @@ with graph.as_default():
 
 	# Check model accuracy against test set
 	if compute_test:
-	    test_acc = accuracy(
-                session.run([test_prediction_num_digits, test_prediction_digit1,
-                    test_prediction_digit2, test_prediction_digit3], feed_dict={keep_prob:1.0}),
-                    test_labels)
-
+            tpnd, tpd1, tpd2, tpd3 = session.run([test_prediction_num_digits, test_prediction_digit1,
+                    test_prediction_digit2, test_prediction_digit3], feed_dict={keep_prob:1.0}) 
+	    test_acc = accuracy((tpnd, tpd1, tpd2, tpd3), test_labels)
             print('Test accuracy: {}'.format(test_acc), file=log_file)
             print('Test accuracy: {}'.format(test_acc))
+
+            # Lets do some F1 scoring
+	    # Num digits
+	    ac_nd = 1.0 * np.sum(np.argmax(tpnd, 1) == np.argmax(test_labels[:,0:num_digits], 1)) / tpnd.shape[0]
+	    print("Num Digits :", file=log_file)
+	    print("\tAccuracy : {}".format(ac_nd), file=log_file)
+	    test_pred_numdigits_onehot = np.eye(num_digits)[np.argmax(tpnd, 1)]
+	    test_actual_num_digits_onehot = test_labels[:,0:num_digits]
+	    print(classification_report(test_actual_num_digits_onehot, test_pred_numdigits_onehot), file=log_file)
+	    # Digit 1
+	    ac_d1 = 1.0 * np.sum(np.argmax(tpd1, 1) == np.argmax(test_labels[:,digit1_index:digit2_index], 1)) / tpd1.shape[0]
+	    print("Digit 1:", file=log_file)
+	    print("\tAccuracy : {}".format(ac_d1), file=log_file)
+	    test_pred_digit1_onehot = np.eye(num_labels)[np.argmax(tpd1, 1)]
+	    test_actual_digit1_onehot = test_labels[:,digit1_index:digit2_index]
+	    print(classification_report(test_actual_digit1_onehot, test_pred_digit1_onehot), file=log_file)
+	    # Digit 2
+	    ac_d2 = 1.0 * np.sum(np.argmax(tpd2, 1) == np.argmax(test_labels[:,digit2_index:digit3_index], 1)) / tpd2.shape[0]
+	    print("Digit 2:", file=log_file)
+	    print("\tAccuracy : {}".format(ac_d2), file=log_file)
+	    test_pred_digit2_onehot = np.eye(num_labels)[np.argmax(tpd2, 1)]
+	    test_actual_digit2_onehot = test_labels[:,digit2_index:digit3_index]
+	    print(classification_report(test_actual_digit2_onehot, test_pred_digit2_onehot), file=log_file)
+	    # Digit 3
+	    ac_d3 = 1.0 * np.sum(np.argmax(tpd3, 1) == np.argmax(test_labels[:,digit3_index:digit3_index + num_labels], 1)) / tpd3.shape[0]
+	    print("Digit 3:", file=log_file)
+	    print("\tAccuracy : {}".format(ac_d3), file=log_file)
+	    test_pred_digit3_onehot = np.eye(num_labels)[np.argmax(tpd3, 1)]
+	    test_actual_digit3_onehot = test_labels[:,digit3_index:digit3_index + num_labels]
+	    print(classification_report(test_actual_digit3_onehot, test_pred_digit3_onehot), file=log_file)
+
+
+
         end = time.time()
         print("Time taken to train database : {} seconds".format(end - start), file=log_file)
         print("Time taken to train database : {} seconds".format(end - start))
@@ -484,7 +523,6 @@ with graph.as_default():
         plt.tight_layout()
 	plt.savefig(plot_file_name, bbox_inches='tight')
         plt.show()
-	
 
         # Save the weights, biases, etc
         print("Saving weights/biases to {}".format(model_file_name))
