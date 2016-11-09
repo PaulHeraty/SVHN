@@ -22,7 +22,9 @@ import math
 from tqdm import tqdm
 from sklearn.metrics import precision_recall_fscore_support as score
 from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
 import pandas as pd
+import itertools
 
 def reformat(dataset, labels):
   if use_cnn:
@@ -64,6 +66,82 @@ def model_name():
     model_name += str(train_subset) + "_"
   model_name += datetime.datetime.now().strftime("%I.%M%p_%B_%d_%Y")
   return model_name
+
+def reverse_one_hot(arr):
+  return np.array([label.argmax() for label in arr])
+
+def plot_loss_acc_graphs(batches, loss_batch, train_acc_batch, valid_acc_batch):
+  loss_plot = plt.subplot(211)
+  loss_plot.set_title('Loss')
+  loss_plot.plot(batches, loss_batch, 'g')
+  loss_plot.set_xlim([batches[0], batches[-1]])
+  acc_plot = plt.subplot(212)
+  acc_plot.set_title('Accuracy')
+  acc_plot.plot(batches, train_acc_batch, 'r', label='Training Accuracy')
+  acc_plot.plot(batches, valid_acc_batch, 'b', label='Validation Accuracy')
+  acc_plot.set_ylim([0, 1.0])
+  acc_plot.set_xlim([batches[0], batches[-1]])
+  acc_plot.legend(loc=4)
+  plt.tight_layout()
+  plt.savefig(plot_file_name + "_loss_acc.png", bbox_inches='tight')
+  plt.show()
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues, msg=''):
+   """
+   This function prints and plots the confusion matrix.
+   Normalization can be applied by setting `normalize=True`.
+   """
+   plt.imshow(cm, interpolation='nearest', cmap=cmap)
+   plt.title(msg + " " + title)
+   plt.colorbar()
+   tick_marks = np.arange(len(classes))
+   plt.xticks(tick_marks, classes, rotation=45)
+   plt.yticks(tick_marks, classes)
+
+   if normalize:
+     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+     print("Normalized confusion matrix", file=log_file)
+   else:
+     print('Confusion matrix, without normalization', file=log_file)
+
+   print(cm, file=log_file)
+
+   thresh = cm.max() / 2.
+   for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+      val = ('%.2f' % cm[i,j]).rstrip('0').rstrip('.')
+      plt.text(j, i, val,
+                horizontalalignment="center",
+                color="white" if cm[i, j] > thresh else "black")
+
+   plt.tight_layout()
+   plt.ylabel('True label')
+   plt.xlabel('Predicted label')
+   pfn = plot_file_name + "_conf_mat_" + msg 
+   if normalize:
+     pfn = pfn + "_norm"
+   plt.savefig(pfn + ".png", bbox_inches='tight')
+
+def show_confusion_matrix(msg, y_test, y_pred, nm_classes):
+  # Compute confusion matrix
+  cnf_matrix = confusion_matrix(reverse_one_hot(y_test), reverse_one_hot(y_pred))
+  np.set_printoptions(precision=2)
+
+  # Plot non-normalized confusion matrix
+  class_names = list(xrange(nm_classes))
+  plt.figure()
+  plot_confusion_matrix(cnf_matrix, classes=class_names,
+                      title='Confusion matrix, without normalization', msg=msg)
+
+  # Plot normalized confusion matrix
+  plt.figure()
+  plot_confusion_matrix(cnf_matrix, classes=class_names, normalize=True,
+                      title='Normalized confusion matrix', msg=msg)
+
+  plt.show()
+
             
 # START OF MAIN PROGRAM
 debug = 0
@@ -111,7 +189,7 @@ except:
 
 model_file_name = "./models/" + model_name()
 log_file_name = "./logs/" + model_name() + ".log"
-plot_file_name = "./logs/" + model_name() + ".png"
+plot_file_name = "./logs/" + model_name() 
 print("Writing to log file {}".format(log_file_name))
 log_file = open(log_file_name, 'w')
 
@@ -478,6 +556,7 @@ with graph.as_default():
 	    print("\tAccuracy : {}".format(ac_nd), file=log_file)
 	    test_pred_numdigits_onehot = np.eye(num_digits)[np.argmax(tpnd, 1)]
 	    test_actual_num_digits_onehot = test_labels[:,0:num_digits]
+            show_confusion_matrix("Num_Digits", test_actual_num_digits_onehot, test_pred_numdigits_onehot, num_digits) 
 	    print(classification_report(test_actual_num_digits_onehot, test_pred_numdigits_onehot), file=log_file)
 	    # Digit 1
 	    ac_d1 = 1.0 * np.sum(np.argmax(tpd1, 1) == np.argmax(test_labels[:,digit1_index:digit2_index], 1)) / tpd1.shape[0]
@@ -485,6 +564,7 @@ with graph.as_default():
 	    print("\tAccuracy : {}".format(ac_d1), file=log_file)
 	    test_pred_digit1_onehot = np.eye(num_labels)[np.argmax(tpd1, 1)]
 	    test_actual_digit1_onehot = test_labels[:,digit1_index:digit2_index]
+            show_confusion_matrix("Digit_1", test_actual_digit1_onehot, test_pred_digit1_onehot, num_labels) 
 	    print(classification_report(test_actual_digit1_onehot, test_pred_digit1_onehot), file=log_file)
 	    # Digit 2
 	    ac_d2 = 1.0 * np.sum(np.argmax(tpd2, 1) == np.argmax(test_labels[:,digit2_index:digit3_index], 1)) / tpd2.shape[0]
@@ -492,6 +572,7 @@ with graph.as_default():
 	    print("\tAccuracy : {}".format(ac_d2), file=log_file)
 	    test_pred_digit2_onehot = np.eye(num_labels)[np.argmax(tpd2, 1)]
 	    test_actual_digit2_onehot = test_labels[:,digit2_index:digit3_index]
+            show_confusion_matrix("Digit_2", test_actual_digit2_onehot, test_pred_digit2_onehot, num_labels) 
 	    print(classification_report(test_actual_digit2_onehot, test_pred_digit2_onehot), file=log_file)
 	    # Digit 3
 	    ac_d3 = 1.0 * np.sum(np.argmax(tpd3, 1) == np.argmax(test_labels[:,digit3_index:digit3_index + num_labels], 1)) / tpd3.shape[0]
@@ -499,6 +580,7 @@ with graph.as_default():
 	    print("\tAccuracy : {}".format(ac_d3), file=log_file)
 	    test_pred_digit3_onehot = np.eye(num_labels)[np.argmax(tpd3, 1)]
 	    test_actual_digit3_onehot = test_labels[:,digit3_index:digit3_index + num_labels]
+            show_confusion_matrix("Digit_3", test_actual_digit3_onehot, test_pred_digit3_onehot, num_labels) 
 	    print(classification_report(test_actual_digit3_onehot, test_pred_digit3_onehot), file=log_file)
 
 
@@ -508,21 +590,22 @@ with graph.as_default():
         print("Time taken to train database : {} seconds".format(end - start))
 	log_file.close()
 
-        # Print graphs
-        loss_plot = plt.subplot(211)
-        loss_plot.set_title('Loss')
-        loss_plot.plot(batches, loss_batch, 'g')
-        loss_plot.set_xlim([batches[0], batches[-1]])
-        acc_plot = plt.subplot(212)
-        acc_plot.set_title('Accuracy')
-        acc_plot.plot(batches, train_acc_batch, 'r', label='Training Accuracy')
-        acc_plot.plot(batches, valid_acc_batch, 'b', label='Validation Accuracy')
-        acc_plot.set_ylim([0, 1.0])
-        acc_plot.set_xlim([batches[0], batches[-1]])
-        acc_plot.legend(loc=4)
-        plt.tight_layout()
-	plt.savefig(plot_file_name, bbox_inches='tight')
-        plt.show()
+        # Print loss and accuracy graphs
+        plot_loss_acc_graphs(batches, loss_batch, train_acc_batch, valid_acc_batch)
+        #loss_plot = plt.subplot(211)
+        #loss_plot.set_title('Loss')
+        #loss_plot.plot(batches, loss_batch, 'g')
+        #loss_plot.set_xlim([batches[0], batches[-1]])
+        #acc_plot = plt.subplot(212)
+        #acc_plot.set_title('Accuracy')
+        #acc_plot.plot(batches, train_acc_batch, 'r', label='Training Accuracy')
+        #acc_plot.plot(batches, valid_acc_batch, 'b', label='Validation Accuracy')
+        #acc_plot.set_ylim([0, 1.0])
+        #acc_plot.set_xlim([batches[0], batches[-1]])
+        #acc_plot.legend(loc=4)
+        #plt.tight_layout()
+	#plt.savefig(plot_file_name, bbox_inches='tight')
+        #plt.show()
 
         # Save the weights, biases, etc
         print("Saving weights/biases to {}".format(model_file_name))
